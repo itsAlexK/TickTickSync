@@ -1,10 +1,10 @@
 {
 	"id": "tickticksync",
-	"name": "TickTickSync",
+	"name": "TickTickSync Fork",
 	"version": "1.1.17",
 	"minAppVersion": "1.0.0",
 	"description": "Sync TickTick tasks to Obsidian, and Obsidian tasks to TickTick",
 	"author": "thesamim",
-	"authorUrl": "https://github.com/thesamim",
+	"authorUrl": "https://github.com/itsalexk",
 	"isDesktopOnly": false
 }
