@@ -28,7 +28,8 @@ const {
 	exportData,
 	projectMove,
 	parentMove,
-	userStatus
+	userStatus,
+	batchTagEndPoint
 } = API_ENDPOINTS;
 
 
@@ -220,7 +221,43 @@ export class Tick {
 
 	// TAGS ======================================================================
 
-	// TODO: if Tags required, they come from allTagsEndPoint
+	async getTags(): Promise<any[]> {
+		try {
+			const url = `${this.apiUrl}/${allTagsEndPoint}`;
+			const response = await this.makeRequest('Get Tags', url, 'GET', undefined);
+			if (response) {
+				return response;
+			}
+		} catch (e) {
+			log.error('Get Tags failed: ', e);
+			this.setError('Get Tags', null, e);
+		}
+		return [];
+	}
+
+	async createTags(tags: any[]): Promise<any> {
+		try {
+			const url = `${this.apiUrl}/${batchTagEndPoint}`;
+			const response = await this.makeRequest('Create Tags', url, 'POST', { add: tags });
+			return response;
+		} catch (e) {
+			log.error('Create Tags failed: ', e);
+			this.setError('Create Tags', null, e);
+			return null;
+		}
+	}
+
+	async updateTags(tags: any[]): Promise<any> {
+		try {
+			const url = `${this.apiUrl}/${batchTagEndPoint}`;
+			const response = await this.makeRequest('Update Tags', url, 'POST', { update: tags });
+			return response;
+		} catch (e) {
+			log.error('Update Tags failed: ', e);
+			this.setError('Update Tags', null, e);
+			return null;
+		}
+	}
 
 	// HABITS ====================================================================
 

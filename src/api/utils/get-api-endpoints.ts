@@ -17,6 +17,7 @@ const API_ENDPOINTS = {
 	projectMove: 'batch/taskProject',
 	parentMove: `batch/taskParent`,
 	userStatus: 'user/status',
+	batchTagEndPoint: 'batch/tag',
 };
 
 /*

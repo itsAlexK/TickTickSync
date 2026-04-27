@@ -25,12 +25,54 @@ type deletedTask = {
 export class SyncMan {
 	private readonly app: App;
 	private readonly plugin: TickTickSync;
+	private _tagCache: any[] | null = null;
 
 
 	constructor(app: App, plugin: TickTickSync) {
 		//super(app,settings,tickTickRestAPI,ticktickSyncAPI,taskParser,cacheOperation);
 		this.app = app;
 		this.plugin = plugin;
+	}
+
+	async ensureObsidianTagHierarchy(leafTagName: string): Promise<void> {
+		if (!leafTagName) return;
+		const tagName = leafTagName.toLowerCase();
+		try {
+			if (!this._tagCache) {
+				this._tagCache = await this.plugin.tickTickRestAPI?.getTags() ?? [];
+			}
+
+			const parentExists = this._tagCache.some(t => t.name === 'obsidian');
+			if (!parentExists) {
+				await this.plugin.tickTickRestAPI?.createTags([
+					{ name: 'obsidian', label: 'obsidian', sortType: 'project', sortOrder: 0 }
+				]);
+				this._tagCache = null; // force refresh
+			}
+
+			if (!this._tagCache) {
+				this._tagCache = await this.plugin.tickTickRestAPI?.getTags() ?? [];
+			}
+
+			const existing = this._tagCache.find(t => t.name === tagName);
+			if (!existing) {
+				await this.plugin.tickTickRestAPI?.createTags([
+					{ name: tagName, label: leafTagName, sortType: 'project', sortOrder: 0, parent: 'obsidian' }
+				]);
+				this._tagCache = null;
+			} else if (existing.parent !== 'obsidian') {
+				existing.parent = 'obsidian';
+				await this.plugin.tickTickRestAPI?.updateTags([existing]);
+				this._tagCache = null;
+			}
+		} catch (e) {
+			log.error('ensureObsidianTagHierarchy failed:', e);
+		}
+	}
+
+	private getLeafTagFromFilepath(filepath: string): string {
+		let leafName = filepath.replace(/\.md$/i, '').split('/').pop() || '';
+		return leafName.replace(/\s+/g, '_').toLowerCase();
 	}
 
 	async deletedTaskCheck(file_path: string | null): Promise<void> {
@@ -235,6 +277,13 @@ export class SyncMan {
 
 				const currentTask = await this.plugin.taskParser.convertLineToTask(lineTxt, line, fileMap.getFilePath(), fileMap, null);
 				const newTask = await this.plugin.tickTickRestAPI?.AddTask(currentTask) as ITask;
+
+				// Ensure the leaf filename tag is nested under 'obsidian' in TickTick
+				const leafTag = this.getLeafTagFromFilepath(fileMap.getFilePath());
+				if (leafTag) {
+					await this.ensureObsidianTagHierarchy(leafTag);
+				}
+
 				if (currentTask.parentId) {
 					let parentTask = this.plugin.cacheOperation?.loadTaskFromCacheID(currentTask.parentId);
 					parentTask = this.plugin.taskParser.addChildToParent(parentTask, currentTask.parentId);
@@ -567,6 +616,14 @@ export class SyncMan {
 					//TODO: This feels Kludgy AF. examine ways to get past this.
 					updatedTask.dateHolder = saveDateHolder;
 					updatedTask.lineHash = newHash;
+
+					// Ensure tag hierarchy when tags changed
+					if (tagsChanged && filepath) {
+						const leafTag = this.getLeafTagFromFilepath(filepath);
+						if (leafTag) {
+							await this.ensureObsidianTagHierarchy(leafTag);
+						}
+					}
 
 					//TODO: Should we do ths again?
 					//      UpdatedTaskLine is needed when something we're doing needs to reflected in TickTick
@@ -946,6 +1003,7 @@ export class SyncMan {
 		//Tasks in Obsidian, not in TickTick: upload
 		//Tasks in TickTick, not in Obsidian: Download
 		//Tasks in both: check for updates.
+		this._tagCache = null; // Reset tag cache for this sync cycle
 		try {
 			const res = await this.plugin.saveProjectsToCache();
 			if (!res) {

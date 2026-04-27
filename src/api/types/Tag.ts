@@ -7,4 +7,5 @@ interface ITag {
 	sortType: string;
 	color: string;
 	etag: string;
+	parent?: string;
 }

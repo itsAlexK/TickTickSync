@@ -242,11 +242,7 @@ export class TaskParser {
 		const regEx = new RegExp(keywords.TickTick_TAG.substring(1), 'i');
 		tags.forEach((tag: string) => {
 			//TickTick tag, if present, will be added at the end.
-			// Also ignore the obsidian file path tag so it isn't displayed in the note.
-			if (!tag.match(regEx) && !tag.startsWith('obsidian-')) {
-				if (tag.includes('-')) {
-					tag = tag.replace(/-/g, '/');
-				}
+			if (!tag.match(regEx)) {
 				resultLine = resultLine + ' #' + tag;
 			}
 		});
@@ -338,17 +334,16 @@ export class TaskParser {
 		let tags = this.getAllTagsFromLineText(textWithoutIndentation);
 
 		if (filepath) {
-			let pathTag = filepath.replace(/\.md$/i, '');
-			pathTag = pathTag.replace(/\s+/g, '_'); // Replace spaces with underscores for valid Obsidian tags
-			pathTag = pathTag.replace(/\//g, '-'); // Plugin uses '-' for nested tags internally
-			const safePathTag = `obsidian-${pathTag}`;
+			// Extract leaf filename without extension, cleanse for tag use
+			let leafName = filepath.replace(/\.md$/i, '').split('/').pop() || '';
+			leafName = leafName.replace(/\s+/g, '_');
+			const leafTag = leafName.toLowerCase();
 			
-			// Remove any existing `obsidian-...` tags to prevent accumulation when dragging/moving notes.
-			// We assume all tags starting with 'obsidian-' are managed by this feature.
-			tags = tags.filter((tag) => !tag.startsWith('obsidian-'));
+			// Remove any old obsidian-managed tags (migration from old format)
+			tags = tags.filter((tag) => !tag.startsWith('obsidian-') && !tag.startsWith('obsidian/'));
 			
-			if (!tags.includes(safePathTag)) {
-				tags.push(safePathTag);
+			if (leafTag && !tags.includes(leafTag)) {
+				tags.push(leafTag);
 			}
 		}
 
@@ -579,7 +574,6 @@ export class TaskParser {
 		// }
 		const tags = [...lineText.matchAll(REGEX.ALL_TAGS)];
 		let tagArray = tags.map(tag => tag[0].replace('#', ''));
-		tagArray = tagArray.map(tag => tag.replace(/\//g, '-'));
 		// tagArray.forEach(tag => log.debug("#### get all tags", tag))
 
 		return tagArray;

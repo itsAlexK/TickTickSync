@@ -398,6 +398,36 @@ export class TickTickRestAPI {
 
 	}
 
+	async getTags(): Promise<any[]> {
+		await this.initializeAPI();
+		try {
+			return await this.api?.getTags() ?? [];
+		} catch (error) {
+			log.error('Error getting tags:', error);
+			return [];
+		}
+	}
+
+	async createTags(tags: any[]): Promise<any> {
+		await this.initializeAPI();
+		try {
+			return await this.api?.createTags(tags);
+		} catch (error) {
+			log.error('Error creating tags:', error);
+			return null;
+		}
+	}
+
+	async updateTags(tags: any[]): Promise<any> {
+		await this.initializeAPI();
+		try {
+			return await this.api?.updateTags(tags);
+		} catch (error) {
+			log.error('Error updating tags:', error);
+			return null;
+		}
+	}
+
 	async moveTaskParent(taskId: string, oldParentId: string, newParentId: string, projectId: string) {
 
 		if (oldParentId) {
