@@ -36,7 +36,7 @@ describe('TaskParser.common', () => {
 
 describe('Notes parsing - no delimiter', () => {
 	// Simulate a file with a task and a multi-line note without delimiters
-it('collects note lines including checklist items without IDs in no-delimiter mode', async () => {
+it('collects note lines but stops at checklist items in no-delimiter mode', async () => {
 		const lines = [
 			'- [ ] just a task, no I didn\'t  #ticktick  %%[ticktick_id:: 68e5581b8eae495e8cca4f3c]%%',
 			'  Ya, you didn\'t count on that ',
@@ -65,10 +65,32 @@ it('collects note lines including checklist items without IDs in no-delimiter mo
 
 		const rec = (fm as any).getTaskLinesByIdx(0, {} as any);
 		console.log("Rec: " , rec);
-		expect(rec.taskLines.length).toBe(5);
+		expect(rec.taskLines.length).toBe(3);
 		expect(rec.taskLines[0].trim()).toBe('Ya, you didn\'t count on that');
-		expect(rec.taskLines[3].trim()).toBe('- [ ] checklist in note');
-		expect(rec.taskLines[rec.taskLines.length - 1].trim()).toBe('Not quite there');
+		expect(rec.taskLines[1].trim()).toBe('did you?');
+		expect(rec.taskLines[2].trim()).toBe('let\'s add a line.');
+	});
+
+	it('does not collect nested markdown tasks as note lines', async () => {
+		const lines = [
+			'- [ ] top level task #ticktick',
+			'  - [ ] nested task',
+		];
+		const plugin = {
+			taskParser: new TaskParser({} as any, {} as any),
+		} as any;
+
+		const fm = new (class extends (FileMap as any) {
+			constructor() { super({}, plugin, {}); this.fileLines = lines; }
+			getParentIDByIdx() { return ''; }
+			getTaskIndex() { return 0; }
+		})();
+		plugin.taskParser.plugin = plugin;
+
+		(getSettings as any)().noteDelimiter = '';
+
+		const rec = (fm as any).getTaskLinesByIdx(0, {} as any);
+		expect(rec.taskLines.length).toBe(0);
 	});
 
 	it('normalizes legacy delimiter to current delimiter', async () => {

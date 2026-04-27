@@ -408,8 +408,7 @@ private getTaskLinesByIdx(taskIdx: number, taskRecord: ITaskRecord) {
 				const line = this.fileLines[i];
 				const sameIndent = this.plugin.taskParser.getNumTabs(line) === numTabs;
 				const isMdTask = this.plugin.taskParser.isMarkdownTask(line);
-				const isNoteChecklist = isMdTask && !this.plugin.taskParser.getLineItemId(line) && !this.plugin.taskParser.hasTickTickId(line);
-				if (sameIndent && line.startsWith(notePrefix) && (!isMdTask || isNoteChecklist)) {
+				if (sameIndent && line.startsWith(notePrefix) && !isMdTask) {
 					collected.push(line);
 				} else {
 					break;
@@ -427,8 +426,7 @@ private getTaskLinesByIdx(taskIdx: number, taskRecord: ITaskRecord) {
 				const line = this.fileLines[i];
 				const sameIndent = this.plugin.taskParser.getNumTabs(line) === numTabs;
 				const isMdTask = this.plugin.taskParser.isMarkdownTask(line);
-				const isNoteChecklist = isMdTask && !this.plugin.taskParser.getLineItemId(line) && !this.plugin.taskParser.hasTickTickId(line);
-				if (sameIndent && line.startsWith(notePrefix) && (!isMdTask || isNoteChecklist)) {
+				if (sameIndent && line.startsWith(notePrefix) && !isMdTask) {
 					taskLines.push(line);
 				} else {
 					break;
