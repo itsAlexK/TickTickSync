@@ -1029,7 +1029,8 @@ export class SyncMan {
 			// this.dumpArray("tick Tick ", tasksFromTickTic)
 			// this.dumpArray("deleted  ", deletedTasks)
 
-			//TODO: Filtering deleted tasks would take an act of congress. Just warn the user in Readme.
+			// Filter out tasks that appear in the delete array to prevent ghost re-downloads
+			tasksFromTickTic = tasksFromTickTic.filter(task => !deletedTasks?.some(d => d.taskId === task.id));
 
 			// Only tasks with the ticktick tag are in scope
 			tasksFromTickTic = tasksFromTickTic.filter(task => {

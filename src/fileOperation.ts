@@ -159,6 +159,17 @@ export class FileOperation {
 				}
 			}
 
+			// Guard: skip tasks routed to existing files that have no TickTick metadata.
+			// This prevents ghost tasks from being appended to unrelated notes.
+			if (taskFile && !bUpdating) {
+				const existingFile = this.app.vault.getAbstractFileByPath(taskFile);
+				const metadata = getSettings().fileMetadata[taskFile];
+				if (existingFile && !metadata) {
+					log.warn('Skipping task routed to unrelated file:', task.id, task.title, '->', taskFile);
+					continue;
+				}
+			}
+
 			this.addTaskToTFF(tasksForFiles, taskFile, task);
 		}
 
