@@ -1,4 +1,4 @@
-import { type App, Notice } from 'obsidian';
+import { type App, Notice, TFile } from 'obsidian';
 import type TickTickSync from '@/main';
 import type { ITask, ITaskItem } from '@/api/types/Task';
 import { getSettings } from '@/settings';
@@ -242,7 +242,8 @@ export class TaskParser {
 		const regEx = new RegExp(keywords.TickTick_TAG.substring(1), 'i');
 		tags.forEach((tag: string) => {
 			//TickTick tag, if present, will be added at the end.
-			if (!tag.match(regEx)) {
+			// Also ignore the obsidian file path tag so it isn't displayed in the note.
+			if (!tag.match(regEx) && !tag.startsWith('obsidian-')) {
 				if (tag.includes('-')) {
 					tag = tag.replace(/-/g, '/');
 				}
@@ -334,12 +335,52 @@ export class TaskParser {
 
 		let timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-		const tags = this.getAllTagsFromLineText(textWithoutIndentation);
+		let tags = this.getAllTagsFromLineText(textWithoutIndentation);
 
-		let projectId = await this.plugin.cacheOperation?.getDefaultProjectIdForFilepath(filepath as string);
+		if (filepath) {
+			let pathTag = filepath.replace(/\.md$/i, '');
+			pathTag = pathTag.replace(/\s+/g, '_'); // Replace spaces with underscores for valid Obsidian tags
+			pathTag = pathTag.replace(/\//g, '-'); // Plugin uses '-' for nested tags internally
+			const safePathTag = `obsidian-${pathTag}`;
+			
+			// Remove any existing `obsidian-...` tags to prevent accumulation when dragging/moving notes.
+			// We assume all tags starting with 'obsidian-' are managed by this feature.
+			tags = tags.filter((tag) => !tag.startsWith('obsidian-'));
+			
+			if (!tags.includes(safePathTag)) {
+				tags.push(safePathTag);
+			}
+		}
+
+		let projectId = null;
+		let frontmatterProject = null;
+
+		if (filepath) {
+			const file = this.app.vault.getAbstractFileByPath(filepath);
+			if (file && file instanceof TFile) {
+				const cache = this.app.metadataCache.getFileCache(file);
+				if (cache?.frontmatter && cache.frontmatter['ticktick-project']) {
+					frontmatterProject = String(cache.frontmatter['ticktick-project']).trim();
+				}
+			}
+		}
+
+		if (frontmatterProject) {
+			const foundId = await this.plugin.cacheOperation?.getProjectIdByNameFromCache(frontmatterProject);
+			if (foundId) {
+				projectId = foundId;
+			}
+		}
+
+		if (!projectId) {
+			projectId = await this.plugin.cacheOperation?.getDefaultProjectIdForFilepath(filepath as string);
+		}
 
 		const hasDefaultProject = this.plugin.cacheOperation?.filepathHasDefaultProjectID(filepath as string);
-		if (!hasDefaultProject && TickTick_id) {
+		// Keep the original TickTick project if the task already exists, unless the user moved it to a file with frontmatter?
+		// User said: "Yes, it should stay in the original obsidian file."
+		// For existing tasks, we keep their project. For new tasks, they get the frontmatter or default project.
+		if (!hasDefaultProject && TickTick_id && !frontmatterProject) {
 			const existingTask = this.plugin.cacheOperation?.loadTaskFromCacheID(TickTick_id);
 			if (existingTask) {
 				projectId = existingTask.projectId;
@@ -609,27 +650,9 @@ export class TaskParser {
 
 	//task project id compare
 	isProjectIdChanged(lineTask: ITask, TickTickTask: ITask) {
-		if (lineTask.projectId !== TickTickTask.projectId) {
-			log.debug('Project ID changed: ', lineTask.projectId, TickTickTask.projectId);
-			//make sure that they're not in a non-project file.
-			const taskFile = this.plugin.cacheOperation.getFilepathForTask(TickTickTask.id);
-			if (taskFile) {
-				// log.debug('Task file: ', taskFile);
-				const hasADefaultProject = this.plugin.cacheOperation.filepathHasDefaultProjectID(taskFile)
-				if (hasADefaultProject) {
-					return true;
-				} else {
-					log.debug('Task file does not have a default project: ', taskFile);
-					//hate to do a notification from here, but I don't want to blindside them either.
-					new Notice(`Task ${TickTickTask.title} was moved in TickTick, but is in ${taskFile}. Assuming that this is intentional and not moving it.`, 10000	);
-
-					return false;
-				}
-
-			}
-		} else {
-			return false;
-		}
+		// The user wants tasks to stay in their original Obsidian file
+		// regardless of TickTick project id changes.
+		return false;
 	}
 
 	//Determine whether the task is indented

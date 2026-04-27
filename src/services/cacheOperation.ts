@@ -284,42 +284,27 @@ export class CacheOperation {
 
 
 	async getFilepathForProjectId(projectId: string) {
-		if ((projectId) ||  (projectId !== '')) {
-			const metadatas = getSettings().fileMetadata;
-
-			//If this project is set as a default for a file, return that file.
-			for (const key in metadatas) {
-				const value = metadatas[key];
-				if (value.defaultProjectId === projectId) {
-					return key;
+		if (projectId && projectId !== '') {
+			const projectName = await this.getProjectNameByIdFromCache(projectId);
+			if (projectName) {
+				const files = this.app.vault.getMarkdownFiles();
+				for (const file of files) {
+					const cache = this.app.metadataCache.getFileCache(file);
+					if (cache?.frontmatter && cache.frontmatter['ticktick-project']) {
+						const frontmatterProject = String(cache.frontmatter['ticktick-project']).trim().toLowerCase();
+						if (frontmatterProject === projectName.toLowerCase()) {
+							return file.path;
+						}
+					}
 				}
 			}
+		}
 
-			//If the project is the inbox, return the inbox or default project file. (It may not have been created)
-			if ((projectId === getSettings().inboxID) ||
-				(projectId === getSettings().defaultProjectId)) { //highly unlikely, but just in case
-				//They don't have a file for the Inbox. If they have a default project, return that.
-				if (getSettings().defaultProjectName) {
-					return getDefaultFolder() +"/"+ getSettings().defaultProjectName + ".md"
-				}
-			}
-
-			//otherwise, return the project name as a md file and hope for the best.
-			const filePath = await this.getProjectNameByIdFromCache(projectId/*, getSettings().keepProjectFolders*/);
-			if (filePath) {
-				return getDefaultFolder() +"/"+ filePath + FILE_EXT;
-			} else {
-				//Not a file that's in fileMetaData, not the inbox no default project set
-				const errmsg = `File path not found for ${projectId}, returning ${filePath} instead.`;
-				log.warn(errmsg);
-				throw new Error(errmsg);
-			}
+		// Fallback to inbox by default, avoiding creating files per project
+		if (getSettings().defaultProjectName) {
+			return getDefaultFolder() + "/" + getSettings().defaultProjectName + FILE_EXT;
 		} else {
-			if (getSettings().defaultProjectName) {
-				return getDefaultFolder() + "/" + getSettings().defaultProjectName + FILE_EXT;
-			} else {
-				return getDefaultFolder() + "/" + "Inbox" + FILE_EXT;
-			}
+			return getDefaultFolder() + "/" + "Inbox" + FILE_EXT;
 		}
 	}
 
