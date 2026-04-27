@@ -275,7 +275,7 @@ export class CacheOperation {
 
 	filepathHasDefaultProjectID(filepath: string) {
 		const metadatas = getSettings().fileMetadata;
-		if (!metadatas[filepath] || metadatas[filepath].defaultProjectId) {
+		if (metadatas[filepath] && metadatas[filepath].defaultProjectId) {
 			return true;
 		} else {
 			return false;

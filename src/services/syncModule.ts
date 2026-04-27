@@ -122,6 +122,11 @@ export class SyncMan {
 					if (location && location != filepath) {
 						log.debug('== found:', taskId, location);
 						saveTheseTasks.push(taskId);
+					} else {
+						const actualLocation = await this.plugin.fileOperation.searchFilepathsByTaskidInVault(taskId);
+						if (actualLocation && actualLocation != filepath) {
+							saveTheseTasks.push(taskId);
+						}
 					}
 				}
 				// log.debug("== saved:", saveTheseTasks)
@@ -166,6 +171,12 @@ export class SyncMan {
 				if (location && location != filePath) {
 					log.debug('Task found in different file:', taskId, location);
 					saveTheseTasks.push(taskId);
+				} else {
+					const actualLocation = await this.plugin.fileOperation.searchFilepathsByTaskidInVault(taskId);
+					if (actualLocation && actualLocation != filePath) {
+						log.debug('Task found in different file via vault search:', taskId, actualLocation);
+						saveTheseTasks.push(taskId);
+					}
 				}
 			}
 			// log.debug("== saved:", saveTheseTasks)

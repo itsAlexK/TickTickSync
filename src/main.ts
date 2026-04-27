@@ -56,6 +56,57 @@ export default class TickTickSync extends Plugin {
 	private syncIntervalId?: number;
 	private logger: any;
 
+	async waitForSyncComplete(): Promise<void> {
+		return new Promise<void>((resolve) => {
+			try {
+				const syncPlugin = (this.app as any).internalPlugins?.plugins?.sync;
+				if (!syncPlugin?.enabled || !syncPlugin?.instance) {
+					resolve();
+					return;
+				}
+
+				const isSyncing = () => {
+					const s = syncPlugin.instance.syncStatus;
+					if (!s) return false;
+					const status = s.toLowerCase();
+					return !['synced', 'fully synced', 'paused', 'error', 'uninitialized', 'disconnected', ''].includes(status);
+				};
+
+				if (!isSyncing()) {
+					resolve();
+					return;
+				}
+
+				log.info("Obsidian sync is currently active. Waiting for completion...");
+
+				let isResolved = false;
+				const timeoutId = setTimeout(() => {
+					if (!isResolved) {
+						syncPlugin.instance.off('status-change', onStatusChange);
+						log.warn("Obsidian sync wait timeout. Proceeding anyway...");
+						isResolved = true;
+						resolve();
+					}
+				}, 60000);
+
+				const onStatusChange = () => {
+					if (!isSyncing() && !isResolved) {
+						syncPlugin.instance.off('status-change', onStatusChange);
+						clearTimeout(timeoutId);
+						log.info("Obsidian sync completed.");
+						isResolved = true;
+						resolve();
+					}
+				};
+
+				syncPlugin.instance.on('status-change', onStatusChange);
+			} catch (e) {
+				log.error("Failed to monitor sync status", e);
+				resolve();
+			}
+		});
+	}
+
 	async onload() {
 		//We're doing too much at load time, and it's causing issues. Do it properly!
 
@@ -63,6 +114,7 @@ export default class TickTickSync extends Plugin {
 			//todo: detect end of sync and/or make sure there's not conflict somehow.
 			// log.debug(`TickTickSync onload pausing for 60 seconds to allow for sync to complete!`);
 			// await waitFor(60000)
+			await this.waitForSyncComplete();
 			await this.pluginLoad();
 		});
 
@@ -295,6 +347,8 @@ export default class TickTickSync extends Plugin {
 		if (!this.checkModuleClass()) {
 			return;
 		}
+
+		await this.waitForSyncComplete();
 
 		const startTime = performance.now();
 		log.debug(`TickTick scheduled synchronization task started at ${new Date().toLocaleString()}`);
@@ -557,6 +611,7 @@ export default class TickTickSync extends Plugin {
 				//individual file deletes will be handled. I hope.
 				return;
 			}
+			await this.waitForSyncComplete();
 			const updated = await this.service.deletedFileCheck(file.path);
 			if (updated) {
 				await this.saveSettings();
@@ -569,6 +624,7 @@ export default class TickTickSync extends Plugin {
 				//individual file rename will be handled. I hope.
 				return;
 			}
+			await this.waitForSyncComplete();
 			const updated = await this.service.renamedFileCheck(file.path, oldPath);
 			if (updated) {
 				await this.saveSettings();
@@ -583,6 +639,7 @@ export default class TickTickSync extends Plugin {
 				if (!getSettings().token) {
 					return;
 				}
+				await this.waitForSyncComplete();
 				const filepath = file.path;
 				//get current view
 				const activateFile = this.app.workspace.getActiveFile();

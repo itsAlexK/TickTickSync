@@ -338,6 +338,14 @@ export class TaskParser {
 
 		let projectId = await this.plugin.cacheOperation?.getDefaultProjectIdForFilepath(filepath as string);
 
+		const hasDefaultProject = this.plugin.cacheOperation?.filepathHasDefaultProjectID(filepath as string);
+		if (!hasDefaultProject && TickTick_id) {
+			const existingTask = this.plugin.cacheOperation?.loadTaskFromCacheID(TickTick_id);
+			if (existingTask) {
+				projectId = existingTask.projectId;
+			}
+		}
+
 		if (hasParent) {
 			if (parentTaskObject) {
 				projectId = parentTaskObject.projectId;
