@@ -1354,7 +1354,7 @@ export class SyncMan {
 		newTaskCopy.items = [];
 
 		const numTabs = this.plugin.taskParser.getNumTabs(lineTxt);
-		let text = await this.plugin.taskParser?.convertTaskToLine(newTaskCopy, numTabs);
+		let text = await this.plugin.taskParser?.convertTaskToLine(newTaskCopy, numTabs, fileMap.getFilePath());
 
 		if (editor && cursor) {
 			const from = { line: cursor.line, ch: 0 };

@@ -463,7 +463,7 @@ export class FileOperation {
 			let filePathForNewProject = '';
 			//Tired of seeing duplicates because of Sync conflicts.
 			if (!bUpdating) {
-				lineText = await this.plugin.taskParser?.convertTaskToLine(task, numParentTabs);
+				lineText = await this.plugin.taskParser?.convertTaskToLine(task, numParentTabs, file.path);
 				if (fileMap.getTaskIndex(task.id) != -1) {
 					log.warn('A Task was being added but was already in file: ', task.id, task.title);
 					//it's in the file, but not in cache. Just update it.
@@ -478,7 +478,7 @@ export class FileOperation {
 				//For updates doing the dateHolder mambo here because we need to make sure we get old dates....
 				const oldTask: ITask = this.plugin.cacheOperation?.loadTaskFromCacheID(task.id);
 				this.plugin.dateMan?.addDateHolderToTask(task, oldTask);
-				lineText = await this.plugin.taskParser?.convertTaskToLine(task, numParentTabs);
+				lineText = await this.plugin.taskParser?.convertTaskToLine(task, numParentTabs, file.path);
 				if (oldTask) {
 					//Only check for Project/Parent change if task is in cache.
 					if ((this.plugin.taskParser?.isProjectIdChanged(oldTask, task))) {

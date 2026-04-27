@@ -148,7 +148,7 @@ export class TaskParser {
 	}
 
 	//convert a task object to a task line.
-	async convertTaskToLine(task: ITask, numTabs: number): Promise<string> {
+	async convertTaskToLine(task: ITask, numTabs: number, filepath?: string): Promise<string> {
 
 		const tabs = '\t'.repeat(numTabs);
 		let resultLine = tabs;
@@ -160,7 +160,7 @@ export class TaskParser {
 
 		//add Tags
 		if (task.tags) {
-			resultLine = this.addTagsToLine(resultLine, task.tags);
+			resultLine = this.addTagsToLine(resultLine, task.tags, filepath);
 		}
 		resultLine = this.addTickTickTag(resultLine);
 
@@ -237,12 +237,17 @@ export class TaskParser {
 		return line;
 	}
 
-	addTagsToLine(resultLine: string, tags: ITask.tags) {
+	addTagsToLine(resultLine: string, tags: ITask.tags, filepath?: string) {
 		//we're looking for the ticktick tag without the #
 		const regEx = new RegExp(keywords.TickTick_TAG.substring(1), 'i');
+		// Derive the filepath leaf tag so we can keep it out of Obsidian
+		let leafTag = '';
+		if (filepath) {
+			leafTag = filepath.replace(/\.md$/i, '').split('/').pop()?.replace(/\s+/g, '_').toLowerCase() || '';
+		}
 		tags.forEach((tag: string) => {
 			//TickTick tag, if present, will be added at the end.
-			if (!tag.match(regEx)) {
+			if (!tag.match(regEx) && tag !== leafTag) {
 				resultLine = resultLine + ' #' + tag;
 			}
 		});
@@ -719,7 +724,10 @@ export class TaskParser {
 		// log.debug("Getting OBS path for: ", filepath)
 		// }
 		const url = encodeURI(`obsidian://open?vault=${this.app.vault.getName()}&file=${filepath}`);
-		const obsidianUrl = `[${filepath}](${url})`;
+		const file = this.app.vault.getAbstractFileByPath(filepath);
+		const fmTitle = file ? this.app.metadataCache.getFileCache(file as any)?.frontmatter?.title : undefined;
+		const title = fmTitle ?? filepath.split('/').pop()?.replace(/\.md$/, '') ?? filepath;
+		const obsidianUrl = `[${title}](${url})`;
 		return (obsidianUrl);
 	}
 
