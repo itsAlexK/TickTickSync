@@ -84,15 +84,12 @@ export class FileMap {
 
 	updateTask(task: ITask, taskLine: string, bParentUpdate = false) {
 		let taskIdx = this.getTaskIndex(task.id);
-		let taskLastLine = 0;
-		let linesToDelete = 0;
-		if (taskIdx >= 0) {
-			taskLastLine = this.getTaskEndLineByTaskID(task.id);
-			linesToDelete = taskLastLine - taskIdx + 1;
-		} else {
-			//possibly an edge case.... Just update to the top.
-			taskIdx = 0;
+		if (taskIdx < 0) {
+			log.warn('updateTask: task not found in file, skipping update:', task.id);
+			return;
 		}
+		const taskLastLine = this.getTaskEndLineByTaskID(task.id);
+		const linesToDelete = taskLastLine - taskIdx + 1;
 		let moveMap: IChildMap = {};
 		if (task.childIds && task.childIds.length > 0) {
 			//before we shift things around, get the children recursively
@@ -293,6 +290,10 @@ export class FileMap {
 
 	private deleteTaskAndLines(id: string) {
 		const taskIdx = this.getTaskIndex(id);
+		if (taskIdx < 0) {
+			log.warn('deleteTaskAndLines: task not found in file, skipping delete:', id);
+			return;
+		}
 		const linesToDelete = this.getTaskEndLineByTaskID(id) - taskIdx + 1;
 		this.fileLines.splice(taskIdx, linesToDelete);
 	}

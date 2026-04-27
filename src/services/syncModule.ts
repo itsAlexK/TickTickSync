@@ -187,6 +187,19 @@ export class SyncMan {
 				);
 			// log.debug("==", filePath, "sanitized", missingTaskIds)
 		}
+
+		// Safety net: if a task is missing from the file but still exists in cache,
+		// it's not truly deleted — just temporarily out of sync (e.g., project move race condition).
+		if (missingTaskIds && missingTaskIds.length > 0) {
+			missingTaskIds = missingTaskIds.filter((taskId) => {
+				const cached = this.plugin.cacheOperation?.loadTaskFromCacheID(taskId);
+				if (cached) {
+					log.debug('Task missing from file but still in cache, skipping deletion:', taskId);
+					return false;
+				}
+				return true;
+			});
+		}
 		// else {
 		// 	log.debug("== nothing missing.")
 		// }

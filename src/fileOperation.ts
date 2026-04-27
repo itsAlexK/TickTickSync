@@ -134,59 +134,43 @@ export class FileOperation {
 			log.error('No tasks to add.');
 			return false;
 		}
-		//sort by project id and task id
-		tasks.sort((taskA, taskB) =>
-			(taskA.projectId.localeCompare(taskB.projectId) ||
-				taskA.id.localeCompare(taskB.id)));
 
-		const projectIds = [...new Set(tasks.map(task => task.projectId))];
+		// For updates, route tasks to their current Obsidian file (ignoring TickTick projectId changes).
+		// For new tasks, route by projectId as before.
+		const tasksForFiles: { file: string, tasks: ITask[] }[] = [];
+		const fileForDefaultProject = await this.plugin.cacheOperation?.getFilepathForProjectId(getSettings().defaultProjectId);
 
-		for (const projectId of projectIds) {
-			let result;
+		for (const task of tasks) {
 			let taskFile: string | null | undefined = null;
-			let projectTasks = tasks.filter(task => task.projectId === projectId);
 
-				//If a task is in the default project, we need to find it on the file system.
-				// 1. Find file for each task
-				// 2. process the tasks by file.
-				const tasksForFiles: { file: string, tasks: ITask[] }[] = [];
-				const fileForDefaultProject = await this.plugin.cacheOperation?.getFilepathForProjectId(getSettings().defaultProjectId);
-				for (const task of projectTasks) {
-					if (task.parentId && task.parentId.length > 0) {
-						taskFile = this.plugin.cacheOperation.getFilepathForTask(task.parentId);
-					} else {
-						taskFile = this.plugin.cacheOperation.getFilepathForTask(task.id);
-					}
-					if (taskFile) {
-						this.addTaskToTFF(tasksForFiles, taskFile, task);
-					} else {
-						taskFile = await this.plugin.cacheOperation?.getFilepathForProjectId(task.projectId);
-						if(taskFile) {
-							this.addTaskToTFF(tasksForFiles, taskFile, task);
-						} else {
-							this.addTaskToTFF(tasksForFiles, fileForDefaultProject, task);
-						}
-					}
+			// Always try cached file path first
+			if (task.parentId && task.parentId.length > 0) {
+				taskFile = this.plugin.cacheOperation.getFilepathForTask(task.parentId);
+			}
+			if (!taskFile) {
+				taskFile = this.plugin.cacheOperation.getFilepathForTask(task.id);
+			}
 
+			// Only fall back to projectId-based routing for new tasks (not updates)
+			if (!taskFile) {
+				taskFile = await this.plugin.cacheOperation?.getFilepathForProjectId(task.projectId);
+				if (!taskFile) {
+					taskFile = fileForDefaultProject;
 				}
-				for (const { file, tasks } of tasksForFiles) {
-					//after redistributing the tasks, make sure they're still in parent/child order.
-					this.doTheSortMambo(tasks);
-					result = await this.synchronizeToFile(file, tasks, bUpdating);
-				}
+			}
 
-			// Sleep for 1 second
+			this.addTaskToTFF(tasksForFiles, taskFile, task);
+		}
+
+		for (const { file, tasks: fileTasks } of tasksForFiles) {
+			this.doTheSortMambo(fileTasks);
+			const result = await this.synchronizeToFile(file, fileTasks, bUpdating);
 			if (result) {
 				await new Promise(resolve => setTimeout(resolve, 1000));
 			}
 			if (getSettings().debugMode) {
-				let opString = '';
-				if (bUpdating) {
-					opString = 'updating';
-				} else {
-					opString = 'adding';
-				}
-				log.debug('===', taskFile, projectTasks, result ? 'Completed ' + opString + ' task(s).' : ' Failed ' + opString + ' task(s).');
+				const opString = bUpdating ? 'updating' : 'adding';
+				log.debug('===', file, fileTasks, result ? 'Completed ' + opString + ' task(s).' : ' Failed ' + opString + ' task(s).');
 			}
 		}
 		return true;
