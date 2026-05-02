@@ -11,6 +11,7 @@
 	let fileLinksInTickTick: string;
 	let taskLinksInObsidian: string;
 	let syncNotes: boolean;
+	let subtasksInsteadOfItems: boolean;
 	let linkBehaviorOptions: Record<string, string> = LINK_BEHAVIOR;
 
 	function setIsWorking(value: boolean) {
@@ -24,6 +25,7 @@
 	$: fileLinksInTickTick = $settingsStore.fileLinksInTickTick;
 	$: taskLinksInObsidian = $settingsStore.taskLinksInObsidian;
 	$: syncNotes = $settingsStore.syncNotes;
+	$: subtasksInsteadOfItems = $settingsStore.subtasksInsteadOfItems;
 
 	// Remove noteLink from options if needed
 	$: if (!syncNotes) {
@@ -41,6 +43,11 @@
 
 	async function handleTickTickTaskLinkChange(value: string) {
 		settingsStore.update((s) => ({ ...s, fileLinksInTickTick: value }));
+		await plugin.saveSettings();
+	}
+
+	async function handleSubtasksInsteadOfItemsChange(value: boolean) {
+		settingsStore.update((s) => ({ ...s, subtasksInsteadOfItems: value }));
 		await plugin.saveSettings();
 	}
 </script>
@@ -72,6 +79,24 @@
 						<option value={id}>{name}</option>
 					{/each}
 				</select>
+			</div>
+		</div>
+	</div>
+
+	<div class="task-settings ">
+		<div class="setting-item">
+			<div class="setting-item-info">
+				<div class="setting-item-name">Sync indented tasks as subtasks</div>
+				<div class="setting-item-description"> Indented tasks with #ticktick will be synced as nested tasks instead of checklist items.
+				</div>
+			</div>
+			<div class="setting-item-control">
+				<input
+					class="checkbox"
+					type="checkbox"
+					bind:checked={subtasksInsteadOfItems}
+					on:change={(e) => handleSubtasksInsteadOfItemsChange((e.target as HTMLInputElement).checked)}
+				/>
 			</div>
 		</div>
 	</div>

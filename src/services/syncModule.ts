@@ -727,6 +727,33 @@ export class SyncMan {
 				await this.plugin.saveSettings();
 				log.debug(`Updated hash: ${updatedHash}`);
 			}
+		} else if (this.plugin.taskParser?.hasTickTickId(lineText) && !this.plugin.taskParser?.hasTickTickTag(lineText)) {
+			// Task has ID but no tag. User removed the tag.
+			const tickTickId = this.plugin.taskParser.getTickTickId(lineText);
+			if (tickTickId) {
+				const savedTask = this.plugin.cacheOperation?.loadTaskFromCacheID(tickTickId);
+				if (savedTask) {
+					// Delete from TickTick
+					await this.deleteTasksByIds([tickTickId]);
+					
+					// If it was a subtask, maybe convert it back to a checklist item?
+					const numTabs = this.plugin.taskParser.getNumTabs(lineText);
+					if (numTabs > 0 && getSettings().subtasksInsteadOfItems) {
+						// This will be picked up by handleTaskItem in the next block or next sync
+						// For now, just let it be. handleTaskItem will treat it as a new checklist item.
+						// We should probably remove the ticktick_id from the line so it doesn't get confused.
+						const cleanedLine = lineText.replace(REGEX.TickTick_ID, '').replace(REGEX.TickTick_LINK, '');
+						try {
+							const markDownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+							const editor = markDownView?.app.workspace.activeEditor?.editor;
+							editor?.setLine(lineNumber!, cleanedLine);
+						} catch (e) {
+							log.error('Error cleaning line after tag removal:', e);
+						}
+					}
+					modified = true;
+				}
+			}
 		} else {
 			if (this.plugin.taskParser.isMarkdownTask(lineText)) {
 				modified = await this.handleTaskItem(lineText, fileMap, lineNumber);
@@ -1397,6 +1424,7 @@ export class SyncMan {
 			//Nah Brah. Bail.
 			return false;
 		}
+
 		let currentObject: ITaskItemRecord;
 		const lineItemId = this.plugin.taskParser.getLineItemId(lineText);
 		if (lineItemId) {
@@ -1406,6 +1434,7 @@ export class SyncMan {
 				currentObject = fileMap.getTaskItemRecordByLine(lineNumber);
 			}
 		}
+
 		if (!currentObject) {
 			//a text line of no interest.
 			log.warn('Item not found in file map: ', lineText);
@@ -1419,8 +1448,65 @@ export class SyncMan {
 		const parentID = currentObject.parentId;
 		const itemId = currentObject.ID;
 
-		const newItem = this.plugin.taskParser?.taskFromLine(lineText);
+		const hasTickTickTag = this.plugin.taskParser.hasTickTickTag(lineText);
 
+		if (getSettings().subtasksInsteadOfItems && hasTickTickTag) {
+			// Convert to a real subtask
+			try {
+				const currentTask = await this.plugin.taskParser.convertLineToTask(lineText, lineNumber!, fileMap.getFilePath(), fileMap, null);
+				const newTask = await this.plugin.tickTickRestAPI?.AddTask(currentTask) as ITask;
+
+				// Ensure the leaf filename tag is nested under 'obsidian' in TickTick
+				const leafTag = this.getLeafTagFromFilepath(fileMap.getFilePath());
+				if (leafTag) {
+					await this.ensureObsidianTagHierarchy(leafTag);
+				}
+
+				// Update the parent's childIds if necessary
+				let parentTask = this.plugin.cacheOperation?.loadTaskFromCacheID(parentID);
+				if (parentTask) {
+					parentTask = this.plugin.taskParser.addChildToParent(parentTask, newTask.id);
+					parentTask = await this.plugin.tickTickRestAPI?.UpdateTask(parentTask);
+					await this.plugin.cacheOperation?.updateTaskToCache(parentTask);
+					
+					// If it was an existing item, remove it from parent's checklist
+					if (itemId && parentTask.items) {
+						parentTask.items = parentTask.items.filter(item => item.id !== itemId);
+						await this.plugin.tickTickRestAPI?.UpdateTask(parentTask);
+						await this.plugin.cacheOperation?.updateTaskToCache(parentTask);
+					}
+				}
+
+				const ticktick_id = newTask.id;
+				new Notice(`new subtask ${newTask.title} id is ${newTask.id}`);
+
+				//If the task is completed
+				if (currentTask.status != 0) {
+					await this.plugin.tickTickRestAPI?.CloseTask(newTask.id, newTask.projectId);
+					await this.plugin.cacheOperation?.closeTaskToCacheByID(ticktick_id);
+				}
+
+				//Save the data that TickTick Doesn't know about.
+				newTask.dateHolder = currentTask.dateHolder;
+
+				//Get TickTickID and links after updating.
+				await this.updateTaskLine(newTask, lineText, null, null, lineNumber!, fileMap);
+
+				//we want the line as it is in Obsidian.
+				const taskRecord = fileMap.getTaskRecord(newTask.id);
+				const taskString = taskRecord.task;
+				const stringToHash = taskString + this.plugin.taskParser.getNoteString(taskRecord, newTask.id);
+				newTask.lineHash = await this.plugin.taskParser?.getLineHash(stringToHash);
+				await this.plugin.cacheOperation?.appendTaskToCache(newTask, fileMap.getFilePath());
+				await this.plugin.saveSettings();
+				return true;
+			} catch (error) {
+				log.error('Error adding subtask:', error);
+				return false;
+			}
+		}
+
+		const newItem = this.plugin.taskParser?.taskFromLine(lineText);
 		const parentTask = this.plugin.cacheOperation?.loadTaskFromCacheID(parentID);
 		if (parentTask && parentTask.items) { //we have some items.
 			if (itemId) {

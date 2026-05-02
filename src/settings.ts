@@ -19,6 +19,7 @@ export interface ITickTickSyncSettings {
 	TickTickTasksFilePath: string;
 	keepProjectFolders: boolean;
 	syncNotes: boolean;
+	subtasksInsteadOfItems: boolean;
 	noteDelimiter: string;
 	fileLinksInTickTick: string;
 	taskLinksInObsidian: string;
@@ -58,6 +59,7 @@ export const DEFAULT_SETTINGS: ITickTickSyncSettings = {
 	TickTickTasksFilePath: '/',
 	keepProjectFolders: false,
 	syncNotes: true,
+	subtasksInsteadOfItems: true,
 	noteDelimiter: '-------------------------------------------------------------',
 	fileLinksInTickTick: 'taskLink',
 	taskLinksInObsidian: 'taskLink',
