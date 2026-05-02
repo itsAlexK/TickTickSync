@@ -666,8 +666,8 @@ export class SyncMan {
 				}
 
 
-				if (contentChanged || tagsChanged || datesChanged ||
-					projectChanged || parentIdChanged || priorityChanged || parentIdChanged || taskItemsChanged || notesChanged) {
+				if (contentChanged || tagsChanged || datesChanged || statusChanged ||
+					projectChanged || parentIdChanged || priorityChanged || taskItemsChanged || notesChanged) {
 
 					// log.debug(lineTask)
 					// log.debug(savedTask)
@@ -1185,11 +1185,11 @@ export class SyncMan {
 
 			const recentUpdates = tasksUpdatedInTickTick.filter(tickTask => {
 				const obsTask = tasksUpdatedInObsidian.find(obsTask => obsTask.id === tickTask.id);
-				if (obsTask && (obsTask.modifiedTime === undefined)) {
-					//No mod time on obs side: ticktick got modified.
+				if (!obsTask) {
+					//No conflicting update on obs side: ticktick got modified.
 					return true;
 				} else {
-					return obsTask && new Date(tickTask.modifiedTime) > new Date(obsTask.modifiedTime);
+					return new Date(tickTask.modifiedTime) > new Date(obsTask.modifiedTime);
 				}
 			});
 
