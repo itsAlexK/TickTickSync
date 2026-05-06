@@ -383,7 +383,7 @@ export class SyncMan {
 		}
 
 		//check task
-		let bHashCheckFailed;
+		let bHashCheckFailed = false;
 		if (this.plugin.taskParser?.hasTickTickId(lineText) && this.plugin.taskParser?.hasTickTickTag(lineText)) {
 			const lineTask_ticktick_id = this.plugin.taskParser.getTickTickId(lineText);
 			//get notes if any
@@ -482,7 +482,7 @@ export class SyncMan {
 			const statusModified = this.plugin.taskParser?.isStatusChanged(lineTask, savedTask);
 
 			//any dates modified
-			const someDatesModified = this.plugin.dateMan?.areDatesChanged(lineTask, savedTask);
+			let someDatesModified = this.plugin.dateMan?.areDatesChanged(lineTask, savedTask);
 
 			const parentIdModified = this.plugin.taskParser?.isParentIdChanged(lineTask, savedTask);
 			//check priority
@@ -530,6 +530,15 @@ export class SyncMan {
 				}
 
 
+				if (someDatesModified) {
+					// Guard against stale dateHolder: if TickTick already has the same
+					// completed time as the parsed note line, it's a cache staleness issue.
+					const parsedCompletedDate = lineTask.dateHolder?.completedTime?.date;
+					const ttCompletedDate = savedTask.completedTime?.split('T')[0];
+					if (parsedCompletedDate && ttCompletedDate && parsedCompletedDate === ttCompletedDate) {
+						someDatesModified = false;
+					}
+				}
 				if (someDatesModified) {
 					if (getSettings().debugMode) {
 						log.debug(`Dates modified for task ${lineTask_ticktick_id}`);

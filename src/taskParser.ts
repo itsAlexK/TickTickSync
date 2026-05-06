@@ -843,13 +843,14 @@ export class TaskParser {
 		oldItems.sort((a, b) => a.id.localeCompare(b.id));
 
 		for (let i = 0; i < newItems.length; i++) {
-			if ((newItems[i].id !== newItems[i].id) ||
-				(newItems[i].status !== newItems[i].status) ||
-				(newItems[i].title !== newItems[i].title)) {
+			if ((newItems[i].id !== oldItems[i].id) ||
+				(newItems[i].status !== oldItems[i].status) ||
+				(newItems[i].title !== oldItems[i].title)) {
 				return true;  // Arrays are different
 			}
 		}
 
+		return false;  // Arrays are exactly the same
 	}
 
 	protected parsePriority(p: string): Priority {
