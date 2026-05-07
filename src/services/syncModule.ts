@@ -462,7 +462,10 @@ export class SyncMan {
 					await this.plugin.cacheOperation?.updateTaskToCache(savedTask, null);
 				}
 				if (!savedTask.lineHash) {
-					savedTask.lineHash = await this.plugin.taskParser?.getLineHash(newHash);
+					savedTask.lineHash = newHash;
+					await this.plugin.cacheOperation?.updateTaskToCache(savedTask, null);
+					await this.plugin.saveSettings();
+					bHashCheckFailed = true;
 				}
 			}
 

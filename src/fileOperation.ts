@@ -500,6 +500,14 @@ export class FileOperation {
 					} else {
 						const bParentUpdate = this.plugin.taskParser?.isParentIdChanged(oldTask, task);
 						fileMap.updateTask(task, lineText, bParentUpdate);
+
+						// Recompute lineHash from updated file content so it survives
+						// the subsequent updateTaskToCache call below.
+						const updatedTaskRecord = fileMap.getTaskRecord(task.id);
+						if (updatedTaskRecord && updatedTaskRecord.task) {
+							const noteStr = this.plugin.taskParser?.getNoteString(updatedTaskRecord, task.id) || '';
+							task.lineHash = await this.plugin.taskParser?.getLineHash(updatedTaskRecord.task + noteStr);
+						}
 					}
 				} else {
 					//how would that happen????

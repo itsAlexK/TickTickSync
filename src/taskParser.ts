@@ -339,17 +339,8 @@ export class TaskParser {
 		let tags = this.getAllTagsFromLineText(textWithoutIndentation);
 
 		if (filepath) {
-			// Extract leaf filename without extension, cleanse for tag use
-			let leafName = filepath.replace(/\.md$/i, '').split('/').pop() || '';
-			leafName = leafName.replace(/\s+/g, '_');
-			const leafTag = leafName.toLowerCase();
-			
 			// Remove any old obsidian-managed tags (migration from old format)
 			tags = tags.filter((tag) => !tag.startsWith('obsidian-') && !tag.startsWith('obsidian/'));
-			
-			if (leafTag && !tags.includes(leafTag)) {
-				tags.push(leafTag);
-			}
 		}
 
 		let projectId = null;
