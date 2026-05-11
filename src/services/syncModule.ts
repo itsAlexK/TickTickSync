@@ -71,8 +71,7 @@ export class SyncMan {
 	}
 
 	private getLeafTagFromFilepath(filepath: string): string {
-		let leafName = filepath.replace(/\.md$/i, '').split('/').pop() || '';
-		return leafName.replace(/\s+/g, '_').toLowerCase();
+		return this.plugin.taskParser.getLeafTagFromFilepath(filepath);
 	}
 
 	async deletedTaskCheck(file_path: string | null): Promise<void> {
@@ -276,13 +275,15 @@ export class SyncMan {
 			try {
 
 				const currentTask = await this.plugin.taskParser.convertLineToTask(lineTxt, line, fileMap.getFilePath(), fileMap, null);
-				const newTask = await this.plugin.tickTickRestAPI?.AddTask(currentTask) as ITask;
 
-				// Ensure the leaf filename tag is nested under 'obsidian' in TickTick
+				// Ensure the leaf filename tag hierarchy exists in TickTick BEFORE adding the task,
+				// so TickTick accepts the tag when the task is created.
 				const leafTag = this.getLeafTagFromFilepath(fileMap.getFilePath());
 				if (leafTag) {
 					await this.ensureObsidianTagHierarchy(leafTag);
 				}
+
+				const newTask = await this.plugin.tickTickRestAPI?.AddTask(currentTask) as ITask;
 
 				if (currentTask.parentId) {
 					let parentTask = this.plugin.cacheOperation?.loadTaskFromCacheID(currentTask.parentId);
@@ -623,19 +624,19 @@ export class SyncMan {
 					//log.debug(updatedContent)
 					savedTask.modifiedTime = this.plugin.dateMan?.formatDateToISO(new Date());
 
-					const saveDateHolder = lineTask.dateHolder; //because it's going to get clobered when we refetch the tas,
-					const updatedTask = <ITask>await this.plugin.tickTickRestAPI?.UpdateTask(lineTask);
-					//TODO: This feels Kludgy AF. examine ways to get past this.
-					updatedTask.dateHolder = saveDateHolder;
-					updatedTask.lineHash = newHash;
-
-					// Ensure tag hierarchy when tags changed
-					if (tagsChanged && filepath) {
+					// Ensure tag hierarchy before updating so TickTick accepts the filename tag
+					if (filepath) {
 						const leafTag = this.getLeafTagFromFilepath(filepath);
 						if (leafTag) {
 							await this.ensureObsidianTagHierarchy(leafTag);
 						}
 					}
+
+					const saveDateHolder = lineTask.dateHolder; //because it's going to get clobered when we refetch the tas,
+					const updatedTask = <ITask>await this.plugin.tickTickRestAPI?.UpdateTask(lineTask);
+					//TODO: This feels Kludgy AF. examine ways to get past this.
+					updatedTask.dateHolder = saveDateHolder;
+					updatedTask.lineHash = newHash;
 
 					//TODO: Should we do ths again?
 					//      UpdatedTaskLine is needed when something we're doing needs to reflected in TickTick
@@ -1466,13 +1467,14 @@ export class SyncMan {
 			// Convert to a real subtask
 			try {
 				const currentTask = await this.plugin.taskParser.convertLineToTask(lineText, lineNumber!, fileMap.getFilePath(), fileMap, null);
-				const newTask = await this.plugin.tickTickRestAPI?.AddTask(currentTask) as ITask;
 
-				// Ensure the leaf filename tag is nested under 'obsidian' in TickTick
+				// Ensure the leaf filename tag hierarchy exists in TickTick BEFORE adding the task.
 				const leafTag = this.getLeafTagFromFilepath(fileMap.getFilePath());
 				if (leafTag) {
 					await this.ensureObsidianTagHierarchy(leafTag);
 				}
+
+				const newTask = await this.plugin.tickTickRestAPI?.AddTask(currentTask) as ITask;
 
 				// Update the parent's childIds if necessary
 				let parentTask = this.plugin.cacheOperation?.loadTaskFromCacheID(parentID);

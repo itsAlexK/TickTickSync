@@ -142,6 +142,7 @@ export class FileOperation {
 
 		for (const task of tasks) {
 			let taskFile: string | null | undefined = null;
+			let taskRoutedByProject = false;
 
 			// Always try cached file path first
 			if (task.parentId && task.parentId.length > 0) {
@@ -154,8 +155,22 @@ export class FileOperation {
 			// Only fall back to projectId-based routing for new tasks (not updates)
 			if (!taskFile) {
 				taskFile = await this.plugin.cacheOperation?.getFilepathForProjectId(task.projectId);
+				taskRoutedByProject = true;
 				if (!taskFile) {
 					taskFile = fileForDefaultProject;
+				}
+			}
+
+			// Guard: when routed by project (cache miss), check if the task already exists
+			// in a vault file. This prevents duplicating tasks to a project-mapped note when
+			// the task was originally added from a different note.
+			if (!bUpdating && taskRoutedByProject && taskFile) {
+				const existingFilepath = await this.searchFilepathsByTaskidInVault(task.id);
+				if (existingFilepath) {
+					log.warn('Task already exists in vault, skipping project-routed add:', task.id, '->', existingFilepath);
+					// Repair the cache entry to point to the correct file
+					await this.plugin.cacheOperation?.appendTaskToCache(task, existingFilepath);
+					continue;
 				}
 			}
 
@@ -518,6 +533,11 @@ export class FileOperation {
 			//We just added tags and url foo, update it on ticktick now.
 			let tags = this.plugin.taskParser?.getAllTagsFromLineText(lineText);
 			if (tags) {
+				// Also include the filename tag (hidden from Obsidian, visible in TickTick)
+				const leafTag = this.plugin.taskParser?.getLeafTagFromFilepath(file.path);
+				if (leafTag && !tags.includes(leafTag)) {
+					tags.push(leafTag);
+				}
 				task.tags = tags;
 			}
 

@@ -147,6 +147,11 @@ export class TaskParser {
 		this.plugin = plugin;
 	}
 
+	getLeafTagFromFilepath(filepath: string): string {
+		const leafName = filepath.replace(/\.md$/i, '').split('/').pop() || '';
+		return leafName.replace(/\s+/g, '_').toLowerCase();
+	}
+
 	//convert a task object to a task line.
 	async convertTaskToLine(task: ITask, numTabs: number, filepath?: string): Promise<string> {
 
@@ -341,6 +346,12 @@ export class TaskParser {
 		if (filepath) {
 			// Remove any old obsidian-managed tags (migration from old format)
 			tags = tags.filter((tag) => !tag.startsWith('obsidian-') && !tag.startsWith('obsidian/'));
+
+			// Add the filename as a hidden tag so tasks can be filtered by source note in TickTick
+			const leafTag = this.getLeafTagFromFilepath(filepath);
+			if (leafTag && !tags.includes(leafTag)) {
+				tags.push(leafTag);
+			}
 		}
 
 		let projectId = null;
