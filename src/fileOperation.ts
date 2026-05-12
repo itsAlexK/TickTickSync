@@ -142,7 +142,6 @@ export class FileOperation {
 
 		for (const task of tasks) {
 			let taskFile: string | null | undefined = null;
-			let taskRoutedByProject = false;
 
 			// Always try cached file path first
 			if (task.parentId && task.parentId.length > 0) {
@@ -152,36 +151,35 @@ export class FileOperation {
 				taskFile = this.plugin.cacheOperation.getFilepathForTask(task.id);
 			}
 
-			// Only fall back to projectId-based routing for new tasks (not updates)
+			// Cache miss: search the vault for the task ID before falling back to project
+			// routing. This catches tasks whose cache entry was never written (e.g. network
+			// failure during AddTask) and prevents them from being duplicated to the wrong note.
+			if (!taskFile) {
+				const existingFilepath = await this.searchFilepathsByTaskidInVault(task.id);
+				if (existingFilepath) {
+					log.warn('Cache miss: task found in vault, repairing cache:', task.id, '->', existingFilepath);
+					await this.plugin.cacheOperation?.appendTaskToCache(task, existingFilepath);
+					taskFile = existingFilepath;
+				}
+			}
+
+			// Only fall back to projectId-based routing when the task is genuinely absent
+			// from the vault (truly new inbound task from TickTick).
 			if (!taskFile) {
 				taskFile = await this.plugin.cacheOperation?.getFilepathForProjectId(task.projectId);
-				taskRoutedByProject = true;
 				if (!taskFile) {
 					taskFile = fileForDefaultProject;
 				}
-			}
 
-			// Guard: when routed by project (cache miss), check if the task already exists
-			// in a vault file. This prevents duplicating tasks to a project-mapped note when
-			// the task was originally added from a different note.
-			if (!bUpdating && taskRoutedByProject && taskFile) {
-				const existingFilepath = await this.searchFilepathsByTaskidInVault(task.id);
-				if (existingFilepath) {
-					log.warn('Task already exists in vault, skipping project-routed add:', task.id, '->', existingFilepath);
-					// Repair the cache entry to point to the correct file
-					await this.plugin.cacheOperation?.appendTaskToCache(task, existingFilepath);
-					continue;
-				}
-			}
-
-			// Guard: skip tasks routed to existing files that have no TickTick metadata.
-			// This prevents ghost tasks from being appended to unrelated notes.
-			if (taskFile && !bUpdating) {
-				const existingFile = this.app.vault.getAbstractFileByPath(taskFile);
-				const metadata = getSettings().fileMetadata[taskFile];
-				if (existingFile && !metadata) {
-					log.warn('Skipping task routed to unrelated file:', task.id, task.title, '->', taskFile);
-					continue;
+				// Guard: skip tasks routed to existing files that have no TickTick metadata.
+				// This prevents ghost tasks from being appended to unrelated notes.
+				if (taskFile) {
+					const existingFile = this.app.vault.getAbstractFileByPath(taskFile);
+					const metadata = getSettings().fileMetadata[taskFile];
+					if (existingFile && !metadata) {
+						log.warn('Skipping task routed to unrelated file (no metadata):', task.id, task.title, '->', taskFile);
+						continue;
+					}
 				}
 			}
 
