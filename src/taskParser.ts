@@ -202,6 +202,7 @@ export class TaskParser {
 
 	stripOBSUrl(title: string): string {
 		//TODO: this is ugly but I can't find a clean regex to make it happen.
+		if (title == null) return '';
 		let result = title;
 		if (result) {
 			let eoURL = title.lastIndexOf('.md)');

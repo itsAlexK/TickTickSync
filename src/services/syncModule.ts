@@ -285,6 +285,11 @@ export class SyncMan {
 
 				const newTask = await this.plugin.tickTickRestAPI?.AddTask(currentTask) as ITask;
 
+				if (!newTask || !newTask.id) {
+					log.error('AddTask returned no valid task — likely a network failure. Skipping post-creation steps.');
+					return;
+				}
+
 				if (currentTask.parentId) {
 					let parentTask = this.plugin.cacheOperation?.loadTaskFromCacheID(currentTask.parentId);
 					parentTask = this.plugin.taskParser.addChildToParent(parentTask, currentTask.parentId);

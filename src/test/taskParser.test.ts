@@ -21,6 +21,43 @@ describe('TaskParser.common', () => {
 	});
 });
 
+describe('TaskParser.getLeafTagFromFilepath', () => {
+	test('generates tag from simple path', () => {
+		expect(parser.getLeafTagFromFilepath('folder/My Note.md')).toBe('my_note');
+	});
+
+	test('handles long filename with timestamp and special chars (the JP-KDT bug)', () => {
+		const filepath = '_PARA/Projects/Amazon/Meetings/2026-05-12-120307 - 2026-05-12 JP-KDT Team Meeting.md';
+		const tag = parser.getLeafTagFromFilepath(filepath);
+		expect(tag).toBe('2026-05-12-120307_-_2026-05-12_jp-kdt_team_meeting');
+		expect(tag.length).toBe(50);
+	});
+
+	test('returns empty string for empty filepath', () => {
+		expect(parser.getLeafTagFromFilepath('')).toBe('');
+	});
+});
+
+describe('TaskParser.stripOBSUrl', () => {
+	test('returns empty string for undefined input', () => {
+		// @ts-ignore - intentionally testing undefined guard
+		expect(parser.stripOBSUrl(undefined)).toBe('');
+	});
+
+	test('returns empty string for null input', () => {
+		// @ts-ignore
+		expect(parser.stripOBSUrl(null)).toBe('');
+	});
+
+	test('strips obsidian URL from title', () => {
+		expect(parser.stripOBSUrl('My Task [Note Title](Note Title.md)')).toBe('My Task');
+	});
+
+	test('returns plain title unchanged', () => {
+		expect(parser.stripOBSUrl('Just a plain task')).toBe('Just a plain task');
+	});
+});
+
 //TODO: add more tests
 // describe("TaskParser.parse", () => {
 // 	test('parse', async () => {
